@@ -523,7 +523,8 @@ async function doSignup() {
     if (error) throw error;
 
     // Update pod member count
-    await db.rpc('increment_pod_members', {pod_id_input: podId}).catch(()=>{});
+    const {data: podData} = await db.from('pods').select('member_count').eq('id', podId).single();
+    await db.from('pods').update({member_count: (podData?.member_count||0)+1}).eq('id', podId);
 
     sucEl.textContent = 'Account created! Logging you in...';
     sucEl.style.display = 'block';
@@ -702,15 +703,10 @@ async function doEngage(postId, btn) {
     if (error) throw error;
 
     // Update post engagement count
-    await db.from('posts').update({engagement_count: db.rpc ? undefined : undefined}).eq('id', postId);
     const {data: post} = await db.from('posts').select('engagement_count, user_id').eq('id', postId).single();
     await db.from('posts').update({engagement_count: (post.engagement_count||0)+1}).eq('id', postId);
 
-    // Update post owner's stats
-    await db.from('users').update({
-      total_likes_received: db.raw ? undefined : undefined,
-      total_comments_received: db.raw ? undefined : undefined
-    }).eq('id', post.user_id);
+    // Update post owner stats
     const {data: owner} = await db.from('users').select('total_likes_received,total_comments_received').eq('id', post.user_id).single();
     await db.from('users').update({
       total_likes_received: (owner.total_likes_received||0)+1,
